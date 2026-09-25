@@ -1,0 +1,37 @@
+config AMNEZIAWG
+	tristate "AmneziaWG secure network tunnel"
+	depends on NET && INET
+	depends on IPV6 || !IPV6
+	select NET_UDP_TUNNEL
+	select DST_CACHE
+	select CRYPTO
+	select CRYPTO_ALGAPI
+	select ARM_CRYPTO if ARM
+	select ARM64_CRYPTO if ARM64
+	select VFP
+	select VFPv3 if CPU_V7
+	select NEON if CPU_V7
+	select KERNEL_MODE_NEON if CPU_V7
+	help
+	  AmneziaWG is WireGuard with traffic obfuscation: junk packets before
+	  the handshake, random prefixes and configurable message types, so
+	  that the tunnel cannot be recognised by its packet signatures. With
+	  all obfuscation parameters left at zero it speaks plain WireGuard.
+
+	  It uses its own generic netlink family ("amneziawg") and its own
+	  link kind ("amneziawg"), so it can be built together with WIREGUARD.
+	  It is configured with the awg tool from amneziawg-tools.
+
+	  It's safe to say Y or M here, as the driver is very lightweight and
+	  is only in use when an administrator chooses to add an interface.
+
+config AMNEZIAWG_DEBUG
+	bool "Debugging checks and verbose messages"
+	depends on AMNEZIAWG
+	help
+	  This will write log messages for handshake and other events
+	  that occur for an AmneziaWG interface. It will also perform some
+	  extra validation checks and unit tests at various points. This is
+	  only useful for debugging.
+
+	  Say N here unless you know what you're doing.

@@ -1,0 +1,170 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Имена глобальных символов AmneziaWG, встроенного в ядро (=y) рядом со встроенным
+ * WireGuard.
+ *
+ * У двух драйверов общая родословная: одни и те же глобальные функции (wg_device_init,
+ * wg_noise_init, …), а zinc модуля определяет те же имена, что lib/crypto ядра, на
+ * котором стоит WireGuard (chacha20poly1305_encrypt, poly1305_blocks_neon, …). Модуль
+ * наружу ничего не отдаёт — EXPORT_SYMBOL в нём нет, ядро зовёт его только через
+ * initcall и таблицы операций, — поэтому каждое его глобальное имя получает приставку
+ * awg_ (wg_ заменяется на awg_), и компоновщик больше не видит пар.
+ *
+ * Переименование делает препроцессор: Makefile подключает этот файл ко всем C- и
+ * ассемблерным исходникам модуля через -include, сами исходники не трогаются, и
+ * обновление модуля остаётся копией его src/. objcopy, как на 4.9, здесь не годится:
+ * с CONFIG_LTO_CLANG объекты — биткод LLVM, а составной amneziawg.o в 4.19 вообще не
+ * собирается, его части ложатся прямо в built-in.a.
+ *
+ * Список должен покрывать все определённые глобальные символы модуля. Makefile
+ * проверяет это после сборки и, если появилось новое имя (обновление модуля), останавливает
+ * сборку и печатает недостающие строки в этом же виде.
+ */
+#ifndef _AWG_BUILTIN_RENAME_H
+#define _AWG_BUILTIN_RENAME_H
+
+/* Определены в ассемблере zinc (arm64). */
+#define chacha20_arm awg_chacha20_arm
+#define chacha20_neon awg_chacha20_neon
+#define poly1305_blocks_arm awg_poly1305_blocks_arm
+#define poly1305_blocks_neon awg_poly1305_blocks_neon
+#define poly1305_emit_arm awg_poly1305_emit_arm
+#define poly1305_emit_neon awg_poly1305_emit_neon
+#define poly1305_init_arm awg_poly1305_init_arm
+
+/* Остальное — в C. Ассемблеру эти имена не нужны, а poly1305-arm64.S сам
+ * определяет poly1305_init и соседей как макросы.
+ */
+#ifndef __ASSEMBLY__
+#define blake2s_hmac awg_blake2s_hmac
+#define blake2s_mod_init awg_blake2s_mod_init
+#define bogus_endpoints awg_bogus_endpoints
+#define bogus_endpoints_prefix awg_bogus_endpoints_prefix
+#define bogus_endpoints_prefix6 awg_bogus_endpoints_prefix6
+#define chacha20 awg_chacha20
+#define chacha20_mod_init awg_chacha20_mod_init
+#define chacha20poly1305_decrypt awg_chacha20poly1305_decrypt
+#define chacha20poly1305_decrypt_sg_inplace awg_chacha20poly1305_decrypt_sg_inplace
+#define chacha20poly1305_encrypt awg_chacha20poly1305_encrypt
+#define chacha20poly1305_encrypt_sg_inplace awg_chacha20poly1305_encrypt_sg_inplace
+#define chacha20poly1305_mod_init awg_chacha20poly1305_mod_init
+#define curve25519 awg_curve25519
+#define curve25519_generate_public awg_curve25519_generate_public
+#define curve25519_generate_secret awg_curve25519_generate_secret
+#define curve25519_mod_init awg_curve25519_mod_init
+#define hchacha20 awg_hchacha20
+#define jp_parse_tags awg_jp_parse_tags
+#define jp_spec_applymods awg_jp_spec_applymods
+#define jp_spec_free awg_jp_spec_free
+#define jp_spec_setup awg_jp_spec_setup
+#define jp_tag_free awg_jp_tag_free
+#define poly1305_final awg_poly1305_final
+#define poly1305_init awg_poly1305_init
+#define poly1305_mod_init awg_poly1305_mod_init
+#define poly1305_update awg_poly1305_update
+#define wg_allowedips_free awg_allowedips_free
+#define wg_allowedips_init awg_allowedips_init
+#define wg_allowedips_insert_v4 awg_allowedips_insert_v4
+#define wg_allowedips_insert_v6 awg_allowedips_insert_v6
+#define wg_allowedips_lookup_dst awg_allowedips_lookup_dst
+#define wg_allowedips_lookup_src awg_allowedips_lookup_src
+#define wg_allowedips_read_node awg_allowedips_read_node
+#define wg_allowedips_remove_by_peer awg_allowedips_remove_by_peer
+#define wg_allowedips_remove_v4 awg_allowedips_remove_v4
+#define wg_allowedips_remove_v6 awg_allowedips_remove_v6
+#define wg_allowedips_slab_init awg_allowedips_slab_init
+#define wg_allowedips_slab_uninit awg_allowedips_slab_uninit
+#define wg_cookie_add_mac_to_packet awg_cookie_add_mac_to_packet
+#define wg_cookie_checker_init awg_cookie_checker_init
+#define wg_cookie_checker_precompute_device_keys awg_cookie_checker_precompute_device_keys
+#define wg_cookie_checker_precompute_peer_keys awg_cookie_checker_precompute_peer_keys
+#define wg_cookie_init awg_cookie_init
+#define wg_cookie_message_consume awg_cookie_message_consume
+#define wg_cookie_message_create awg_cookie_message_create
+#define wg_cookie_validate_packet awg_cookie_validate_packet
+#define wg_device_init awg_device_init
+#define wg_device_uninit awg_device_uninit
+#define wg_genetlink_init awg_genetlink_init
+#define wg_genetlink_uninit awg_genetlink_uninit
+#define wg_genl_mcast_peer_unknown awg_genl_mcast_peer_unknown
+#define wg_index_hashtable_alloc awg_index_hashtable_alloc
+#define wg_index_hashtable_insert awg_index_hashtable_insert
+#define wg_index_hashtable_lookup awg_index_hashtable_lookup
+#define wg_index_hashtable_remove awg_index_hashtable_remove
+#define wg_index_hashtable_replace awg_index_hashtable_replace
+#define wg_noise_expire_current_peer_keypairs awg_noise_expire_current_peer_keypairs
+#define wg_noise_handshake_begin_session awg_noise_handshake_begin_session
+#define wg_noise_handshake_clear awg_noise_handshake_clear
+#define wg_noise_handshake_consume_initiation awg_noise_handshake_consume_initiation
+#define wg_noise_handshake_consume_response awg_noise_handshake_consume_response
+#define wg_noise_handshake_create_initiation awg_noise_handshake_create_initiation
+#define wg_noise_handshake_create_response awg_noise_handshake_create_response
+#define wg_noise_handshake_init awg_noise_handshake_init
+#define wg_noise_init awg_noise_init
+#define wg_noise_keypair_get awg_noise_keypair_get
+#define wg_noise_keypair_put awg_noise_keypair_put
+#define wg_noise_keypairs_clear awg_noise_keypairs_clear
+#define wg_noise_precompute_static_static awg_noise_precompute_static_static
+#define wg_noise_received_with_keypair awg_noise_received_with_keypair
+#define wg_noise_set_static_identity_private_key awg_noise_set_static_identity_private_key
+#define wg_packet_decrypt_worker awg_packet_decrypt_worker
+#define wg_packet_encrypt_worker awg_packet_encrypt_worker
+#define wg_packet_handshake_receive_worker awg_packet_handshake_receive_worker
+#define wg_packet_handshake_send_worker awg_packet_handshake_send_worker
+#define wg_packet_percpu_multicore_worker_alloc awg_packet_percpu_multicore_worker_alloc
+#define wg_packet_purge_staged_packets awg_packet_purge_staged_packets
+#define wg_packet_queue_free awg_packet_queue_free
+#define wg_packet_queue_init awg_packet_queue_init
+#define wg_packet_receive awg_packet_receive
+#define wg_packet_rx_poll awg_packet_rx_poll
+#define wg_packet_send_handshake_cookie awg_packet_send_handshake_cookie
+#define wg_packet_send_handshake_response awg_packet_send_handshake_response
+#define wg_packet_send_keepalive awg_packet_send_keepalive
+#define wg_packet_send_queued_handshake_initiation awg_packet_send_queued_handshake_initiation
+#define wg_packet_send_staged_packets awg_packet_send_staged_packets
+#define wg_packet_tx_worker awg_packet_tx_worker
+#define wg_peer_create awg_peer_create
+#define wg_peer_get_maybe_zero awg_peer_get_maybe_zero
+#define wg_peer_init awg_peer_init
+#define wg_peer_put awg_peer_put
+#define wg_peer_remove awg_peer_remove
+#define wg_peer_remove_all awg_peer_remove_all
+#define wg_peer_uninit awg_peer_uninit
+#define wg_prev_queue_dequeue awg_prev_queue_dequeue
+#define wg_prev_queue_enqueue awg_prev_queue_enqueue
+#define wg_prev_queue_init awg_prev_queue_init
+#define wg_pubkey_hashtable_add awg_pubkey_hashtable_add
+#define wg_pubkey_hashtable_alloc awg_pubkey_hashtable_alloc
+#define wg_pubkey_hashtable_lookup awg_pubkey_hashtable_lookup
+#define wg_pubkey_hashtable_remove awg_pubkey_hashtable_remove
+#define wg_ratelimiter_allow awg_ratelimiter_allow
+#define wg_ratelimiter_init awg_ratelimiter_init
+#define wg_ratelimiter_uninit awg_ratelimiter_uninit
+#define wg_socket_clear_peer_endpoint_src awg_socket_clear_peer_endpoint_src
+#define wg_socket_endpoint_from_skb awg_socket_endpoint_from_skb
+#define wg_socket_init awg_socket_init
+#define wg_socket_reinit awg_socket_reinit
+#define wg_socket_send_buffer_as_reply_to_skb awg_socket_send_buffer_as_reply_to_skb
+#define wg_socket_send_buffer_to_peer awg_socket_send_buffer_to_peer
+#define wg_socket_send_skb_to_peer awg_socket_send_skb_to_peer
+#define wg_socket_set_peer_endpoint awg_socket_set_peer_endpoint
+#define wg_socket_set_peer_endpoint_from_skb awg_socket_set_peer_endpoint_from_skb
+#define wg_timers_any_authenticated_packet_received awg_timers_any_authenticated_packet_received
+#define wg_timers_any_authenticated_packet_sent awg_timers_any_authenticated_packet_sent
+#define wg_timers_any_authenticated_packet_traversal awg_timers_any_authenticated_packet_traversal
+#define wg_timers_data_received awg_timers_data_received
+#define wg_timers_data_sent awg_timers_data_sent
+#define wg_timers_handshake_complete awg_timers_handshake_complete
+#define wg_timers_handshake_initiated awg_timers_handshake_initiated
+#define wg_timers_init awg_timers_init
+#define wg_timers_session_derived awg_timers_session_derived
+#define wg_timers_stop awg_timers_stop
+#define xchacha20poly1305_decrypt awg_xchacha20poly1305_decrypt
+#define xchacha20poly1305_encrypt awg_xchacha20poly1305_encrypt
+#define zinc_blake2s_final awg_zinc_blake2s_final
+#define zinc_blake2s_init awg_zinc_blake2s_init
+#define zinc_blake2s_init_key awg_zinc_blake2s_init_key
+#define zinc_blake2s_update awg_zinc_blake2s_update
+#endif /* __ASSEMBLY__ */
+
+#endif /* _AWG_BUILTIN_RENAME_H */
