@@ -610,8 +610,23 @@ void wg_packet_decrypt_worker(struct work_struct *work)
 #ifdef COMPAT_CRYPTO_IS_ZINC
 		simd_relax(&simd_context);
 #endif
-		if (need_resched())
+		if (need_resched()) {
+#ifdef COMPAT_CRYPTO_IS_ZINC
+			/* simd_relax() отдаёт FPU только при CONFIG_PREEMPT. На ядрах без
+			 * него (PREEMPT_VOLUNTARY, PREEMPT_NONE) kernel_fpu_begin() и
+			 * kernel_neon_begin() не поднимают preempt_count, и cond_resched()
+			 * уводит поток с процессора посреди занятого FPU: следующий поток
+			 * на этом процессоре получает чужие регистры (на 4.9 x86 — WARN в
+			 * kernel_fpu_disable/enable). Поэтому перед уступкой FPU отдаётся
+			 * явно и берётся снова после.
+			 */
+			simd_put(&simd_context);
+#endif
 			cond_resched();
+#ifdef COMPAT_CRYPTO_IS_ZINC
+			simd_get(&simd_context);
+#endif
+		}
 	}
 
 #ifdef COMPAT_CRYPTO_IS_ZINC

@@ -411,6 +411,7 @@ static inline u64 __compat_jiffies64_to_nsecs(u64 j)
 }
 #define jiffies64_to_nsecs __compat_jiffies64_to_nsecs
 #endif
+#ifndef COMPAT_HAS_KTIME_GET_COARSE_BOOTTIME_NS
 static inline u64 ktime_get_coarse_boottime_ns(void)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
@@ -421,6 +422,7 @@ static inline u64 ktime_get_coarse_boottime_ns(void)
 	return ktime_to_ns(ktime_get_coarse_boottime());
 #endif
 }
+#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
@@ -546,6 +548,12 @@ static inline void *__compat_kvcalloc(size_t n, size_t size, gfp_t flags)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 #include <net/netlink.h>
 #include <net/genetlink.h>
+/* struct netlink_ext_ack появилась в 4.12, а wg_newlink() принимает указатель на неё
+ * при любой версии ядра. Без объявления заранее тип рождается прямо в списке
+ * параметров, и компилятор предупреждает, что снаружи он не виден; ядра с -Werror
+ * (сборки Android) на этом останавливаются.
+ */
+struct netlink_ext_ack;
 #define nlmsg_parse(a, b, c, d, e, f) nlmsg_parse(a, b, c, d, e)
 #define nla_parse_nested(a, b, c, d, e) nla_parse_nested(a, b, c, d)
 #endif
@@ -1091,6 +1099,7 @@ static inline void skb_reset_redirect(struct sk_buff *skb)
 #include <linux/skbuff.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
+#ifndef COMPAT_HAS_IP_TUNNEL_PARSE_PROTOCOL
 static inline __be16 ip_tunnel_parse_protocol(const struct sk_buff *skb)
 {
 	if (skb_network_header(skb) >= skb->head &&
@@ -1103,6 +1112,7 @@ static inline __be16 ip_tunnel_parse_protocol(const struct sk_buff *skb)
 		return htons(ETH_P_IPV6);
 	return 0;
 }
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0) || defined(ISRHEL8)
 static const struct header_ops ip_tunnel_header_ops = { .parse_protocol = ip_tunnel_parse_protocol };
 #else
@@ -1149,6 +1159,7 @@ struct dst_cache_pcpu {
     !(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 7) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)) && \
     !(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 84) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)) && \
     !defined(ISRHEL9)
+#ifndef COMPAT_HAS_DST_CACHE_RESET_NOW
 static inline void dst_cache_reset_now(struct dst_cache *dst_cache)
 {
 	int i;
@@ -1166,6 +1177,7 @@ static inline void dst_cache_reset_now(struct dst_cache *dst_cache)
 		dst_release(dst);
 	}
 }
+#endif
 #endif
 
 #if defined(ISUBUNTU1604) || defined(ISRHEL7)
@@ -1227,7 +1239,8 @@ static inline void dst_cache_reset_now(struct dst_cache *dst_cache)
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 312) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)) && \
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 274) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)) && \
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 215) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)) && \
-	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 154) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
+	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 154) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)) || \
+	defined(COMPAT_NO_TIMER_DELETE_SYNC)
 #define timer_delete_sync(timer) del_timer_sync(timer)
 #endif
 
@@ -1255,7 +1268,8 @@ static inline u32 get_random_u32_inclusive(u32 floor, u32 ceil)
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 296) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)) && \
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 229) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)) && \
 	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 163) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)) && \
-	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 86) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
+	!(LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 86) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)) || \
+	defined(COMPAT_NO_DEV_STATS_INC)
 #undef DEV_STATS_INC
 #define DEV_STATS_INC(DEV, FIELD) ++DEV->stats.FIELD
 #undef DEV_STATS_ADD
@@ -1354,10 +1368,12 @@ static inline void netif_set_tso_max_size(struct net_device *dev, unsigned int s
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+#ifndef COMPAT_HAS_SKB_QUEUE_EMPTY_LOCKLESS
 static inline bool skb_queue_empty_lockless(const struct sk_buff_head *list)
 {
 	return READ_ONCE(list->next) == (const struct sk_buff *) list;
 }
+#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)

@@ -11,6 +11,12 @@
 #include "ratelimiter.h"
 #include "netlink.h"
 #include "uapi/wireguard.h"
+#ifdef COMPAT_INIT_CRYPTO
+/* Прототипы chacha20_mod_init() и прочих: без них вызовы ниже неявные, и старые ядра
+ * (4.9 и ниже 5.10, где zinc собирается в модуль) не собираются.
+ */
+#include "crypto/zinc.h"
+#endif
 
 #include <linux/init.h>
 #include <linux/module.h>

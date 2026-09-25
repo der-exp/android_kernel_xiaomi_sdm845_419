@@ -239,6 +239,12 @@ void blake2s_hmac(u8 *out, const u8 *in, const u8 *key, const size_t outlen,
 	memzero_explicit(i_hash, BLAKE2S_HASH_SIZE);
 }
 
+/* compat.h переставляет аргументы blake2s() под порядок ядер 6.19+ (ключ первым),
+ * которым пишут noise.c и cookie.c. Самопроверка zinc зовёт blake2s() в собственном,
+ * старом порядке, и через макрос получила бы аргументы наоборот: на выходе ложный
+ * FAIL, а при сборке — предупреждения, которые ядра с -Werror не пропускают.
+ */
+#undef blake2s
 #include "../selftest/blake2s.c"
 
 static bool nosimd __initdata = false;

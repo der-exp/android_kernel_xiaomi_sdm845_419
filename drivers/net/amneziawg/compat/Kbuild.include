@@ -108,8 +108,44 @@ ifneq ($(shell grep -s -F "\#define LINUX_PACKAGE_ID \" Debian " "$(CURDIR)/incl
 ccflags-y += -DISDEBIAN
 endif
 
+# Ядра Android с бэкпортом WireGuard (4.19 у sdm845) несут и помощники, которые в
+# апстриме появились позже, чем говорит их номер версии: ktime_get_coarse_boottime_ns
+# (5.3), skb_queue_empty_lockless (5.4), ip_tunnel_parse_protocol (5.8),
+# dst_cache_reset_now (5.16). Замены из compat.h тогда встречаются с объявлениями ядра,
+# поэтому наличие проверяется по заголовкам, а не по версии. И наоборот: в таком ядре
+# может не быть DEV_STATS_INC и timer_delete_sync, хотя по номеру версии они уже должны
+# быть.
+ifneq ($(shell grep -s -F "ktime_get_coarse_boottime_ns" "$(srctree)/include/linux/timekeeping.h"),)
+ccflags-y += -DCOMPAT_HAS_KTIME_GET_COARSE_BOOTTIME_NS
+endif
+ifneq ($(shell grep -s -F "skb_queue_empty_lockless" "$(srctree)/include/linux/skbuff.h"),)
+ccflags-y += -DCOMPAT_HAS_SKB_QUEUE_EMPTY_LOCKLESS
+endif
+ifneq ($(shell grep -s -F "ip_tunnel_parse_protocol" "$(srctree)/include/net/ip_tunnels.h"),)
+ccflags-y += -DCOMPAT_HAS_IP_TUNNEL_PARSE_PROTOCOL
+endif
+ifneq ($(shell grep -s -F "dst_cache_reset_now" "$(srctree)/include/net/dst_cache.h"),)
+ccflags-y += -DCOMPAT_HAS_DST_CACHE_RESET_NOW
+endif
+ifeq ($(shell grep -s -F "define DEV_STATS_INC" "$(srctree)/include/linux/netdevice.h"),)
+ccflags-y += -DCOMPAT_NO_DEV_STATS_INC
+endif
+ifeq ($(shell grep -s -F "timer_delete_sync" "$(srctree)/include/linux/timer.h"),)
+ccflags-y += -DCOMPAT_NO_TIMER_DELETE_SYNC
+endif
+
 ifeq ($(wildcard $(srctree)/include/crypto/blake2s.h),)
 ccflags-y += -I$(kbuild-dir)/compat/crypto/blake2s/include
+endif
+
+# До 5.10 BLAKE2s модуля — из zinc (crypto/Kbuild.include), и compat.h переименовывает
+# его функции в zinc_*. Но в стабильные 4.9.320+, 4.14.285+, 4.19.249+ и 5.4.200+
+# вместе с новым random.c пришёл и свой <crypto/blake2s.h> ядра: без этой строки его
+# struct blake2s_state и объявления встречаются с zinc/blake2s.h в одной единице
+# трансляции, и сборка падает. Заголовок-переходник на zinc ставится впереди
+# LINUXINCLUDE, чтобы <crypto/blake2s.h> в исходниках модуля означал zinc.
+ifeq ($(shell [ $(VERSION) -lt 5 -o \( $(VERSION) -eq 5 -a $(PATCHLEVEL) -lt 10 \) ] && echo y)$(if $(wildcard $(srctree)/include/crypto/blake2s.h),y,),yy)
+LINUXINCLUDE := -I$(kbuild-dir)/compat/crypto/blake2s/include $(LINUXINCLUDE)
 endif
 
 ifeq ($(wildcard $(srctree)/include/crypto/chacha20poly1305.h),)
@@ -120,8 +156,35 @@ ifeq ($(wildcard $(srctree)/include/crypto/utils.h),)
 ccflags-y += -I$(kbuild-dir)/compat/crypto/utils/include
 endif
 
+# Библиотечного ChaCha (chacha_init/chacha20_crypt) до 5.5 нет, а в ядрах Android 4.9
+# на его месте лежит заголовок бэкпорта Adiantum с другим интерфейсом. Поэтому
+# проверяется не наличие файла, а наличие функции, и свой заголовок ставится
+# впереди LINUXINCLUDE: через ccflags он оказался бы позади include/ ядра.
+#
+# При zinc (ядра до 5.10) свой заголовок ставится всегда, даже если библиотечный
+# ChaCha у ядра есть (Android 4.19 с бэкпортом WireGuard поверх lib/crypto): compat.h
+# включает <crypto/chacha.h> в каждую единицу трансляции, и макросы CHACHA20_KEY_SIZE и
+# CHACHA20_BLOCK_SIZE заголовка ядра ломают одноимённые перечисления zinc/chacha20.h.
+ifeq ($(shell [ $(VERSION) -lt 5 -o \( $(VERSION) -eq 5 -a $(PATCHLEVEL) -lt 10 \) ] && echo y),y)
+LINUXINCLUDE := -I$(kbuild-dir)/compat/crypto/chacha/include $(LINUXINCLUDE)
+else ifeq ($(shell grep -s -F "chacha20_crypt" "$(srctree)/include/crypto/chacha.h"),)
+LINUXINCLUDE := -I$(kbuild-dir)/compat/crypto/chacha/include $(LINUXINCLUDE)
+endif
+
 ifeq ($(wildcard $(srctree)/include/crypto/curve25519.h),)
 ccflags-y += -I$(kbuild-dir)/compat/crypto/curve25519/include
+endif
+
+# То же, что с BLAKE2s выше, для ChaCha20Poly1305 и Curve25519. Ядра Android 4.19 с
+# бэкпортом WireGuard поверх lib/crypto несут библиотечные <crypto/chacha20poly1305.h>
+# и <crypto/curve25519.h> из 5.6, а модуль до 5.10 собирает zinc и зовёт его с
+# simd_context_t, так что с заголовками ядра прототипы не сходятся. Поэтому при zinc
+# и эти имена означают заголовки zinc, и переходники ставятся впереди LINUXINCLUDE.
+ifeq ($(shell [ $(VERSION) -lt 5 -o \( $(VERSION) -eq 5 -a $(PATCHLEVEL) -lt 10 \) ] && echo y)$(if $(wildcard $(srctree)/include/crypto/chacha20poly1305.h),y,),yy)
+LINUXINCLUDE := -I$(kbuild-dir)/compat/crypto/chacha20poly1305/include $(LINUXINCLUDE)
+endif
+ifeq ($(shell [ $(VERSION) -lt 5 -o \( $(VERSION) -eq 5 -a $(PATCHLEVEL) -lt 10 \) ] && echo y)$(if $(wildcard $(srctree)/include/crypto/curve25519.h),y,),yy)
+LINUXINCLUDE := -I$(kbuild-dir)/compat/crypto/curve25519/include $(LINUXINCLUDE)
 endif
 
 ifeq ($(wildcard $(srctree)/include/linux/kstrtox.h),)
